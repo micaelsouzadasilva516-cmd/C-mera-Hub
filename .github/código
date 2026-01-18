@@ -1,0 +1,712 @@
+--// ANIMAÇÃO INICIAL - DESENHO DE UMA ÁRVORE
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+local splashGui = Instance.new("ScreenGui")
+splashGui.IgnoreGuiInset = true
+splashGui.ResetOnSpawn = false
+splashGui.Parent = player:WaitForChild("PlayerGui")
+
+local fundo = Instance.new("Frame")
+fundo.Size = UDim2.new(1,0,1,0)
+fundo.BackgroundColor3 = Color3.fromRGB(0,0,0)
+fundo.Parent = splashGui
+
+local tree = Instance.new("ImageLabel")
+tree.Size = UDim2.new(0,300,0,300)
+tree.Position = UDim2.new(0.5,-150,0.5,-150)
+tree.BackgroundTransparency = 1
+tree.Image = "rbxassetid://13773680856"
+tree.Parent = fundo
+tree.ImageTransparency = 1
+
+-- Fade-in da árvore
+for i=0,1,0.05 do
+	tree.ImageTransparency = 1-i
+	task.wait(0.03)
+end
+task.wait(1)
+-- Fade-out
+for i=0,1,0.05 do
+	tree.ImageTransparency = i
+	task.wait(0.03)
+end
+
+splashGui:Destroy()
+
+--// RAYFIELD
+local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
+
+local Window = Rayfield:CreateWindow({
+	Name = "Sistema Completo",
+	LoadingTitle = "Camera Hub",
+	LoadingSubtitle = "Rayfield",
+	Theme = "Dark"
+})
+
+--// SECTIONS
+local SectionGuras = Window:CreateTab("Guras", 4483362458)
+local SectionCameras = Window:CreateTab("📸 Câmeras", 4483362458)
+local SectionMovimento = Window:CreateTab("🏃 Movimento", 4483362458)
+local SectionPortais = Window:CreateTab("🌀 Portais", 4483362458)
+
+--// SERVIÇOS
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local cam = workspace.CurrentCamera
+
+--// VARIÁVEIS CÂMERAS
+local cameras = {}
+local cameraAtual = 1
+local vendoCamera = false
+local speedAtivo = false
+local speedValor = 16
+
+--// VARIÁVEIS PORTAIS
+local portalAtivo = false
+local modoClique = false
+local formatoPortal = "Cilindro"
+local portaisAtivos = {}
+local paresPortais = {}
+local contadorPortais = 1
+local teleportCooldown = {}
+local mouse = player:GetMouse()
+
+-- Cores aleatórias para cada par
+local function gerarCores()
+	local hue = math.random(0, 360)
+	local cor1 = Color3.fromHSV(hue / 360, 0.8, 1)
+	local cor2 = Color3.fromHSV(hue / 360, 0.5, 1)
+	return cor1, cor2
+end
+
+--// LABEL INFO CÂMERAS
+local infoLabel = SectionCameras:CreateLabel("Nenhuma câmera criada")
+
+local function atualizarInfo()
+	infoLabel:Set("Câmera: "..cameraAtual.." / "..#cameras)
+end
+
+--// FUNÇÃO PARA CRIAR CÂMERA REALISTA TIPO 📷
+local function criarCameraRealista(position)
+	local model = Instance.new("Model")
+	model.Name = "Camera3D"
+	model.Parent = workspace
+
+	-- CORPO PRINCIPAL (formato de câmera real)
+	local corpo = Instance.new("Part")
+	corpo.Size = Vector3.new(3, 2.5, 2.8)
+	corpo.Material = Enum.Material.SmoothPlastic
+	corpo.Color = Color3.fromRGB(25, 25, 25)
+	corpo.Anchored = true
+	corpo.CanCollide = false
+	corpo.CFrame = position
+	corpo.Parent = model
+
+	-- PARTE SUPERIOR (flash/botões)
+	local topo = Instance.new("Part")
+	topo.Size = Vector3.new(2.5, 0.8, 1.8)
+	topo.Material = Enum.Material.SmoothPlastic
+	topo.Color = Color3.fromRGB(30, 30, 30)
+	topo.Anchored = true
+	topo.CanCollide = false
+	topo.CFrame = corpo.CFrame * CFrame.new(0, 1.65, 0.3)
+	topo.Parent = model
+
+	-- FLASH
+	local flash = Instance.new("Part")
+	flash.Shape = Enum.PartType.Ball
+	flash.Size = Vector3.new(0.5, 0.5, 0.5)
+	flash.Material = Enum.Material.Neon
+	flash.Color = Color3.fromRGB(255, 255, 200)
+	flash.Anchored = true
+	flash.CanCollide = false
+	flash.CFrame = topo.CFrame * CFrame.new(-0.8, 0, -0.6)
+	flash.Parent = model
+
+	-- LENTE PRINCIPAL (grande e realista)
+	local lente = Instance.new("Part")
+	lente.Shape = Enum.PartType.Cylinder
+	lente.Size = Vector3.new(1.2, 2.2, 2.2)
+	lente.Material = Enum.Material.Glass
+	lente.Color = Color3.fromRGB(15, 15, 20)
+	lente.Transparency = 0.2
+	lente.Reflectance = 0.6
+	lente.Anchored = true
+	lente.CanCollide = false
+	lente.CFrame = corpo.CFrame * CFrame.new(0, -0.2, -2) * CFrame.Angles(0, 0, math.rad(90))
+	lente.Parent = model
+
+	-- ANEL DA LENTE (cromado)
+	local anel = Instance.new("Part")
+	anel.Shape = Enum.PartType.Cylinder
+	anel.Size = Vector3.new(0.4, 2.6, 2.6)
+	anel.Material = Enum.Material.Metal
+	anel.Color = Color3.fromRGB(80, 80, 85)
+	anel.Reflectance = 0.4
+	anel.Anchored = true
+	anel.CanCollide = false
+	anel.CFrame = lente.CFrame * CFrame.new(0, 0, 0)
+	anel.Parent = model
+
+	-- LENTE INTERNA (detalhe realista)
+	local lenteInterna = Instance.new("Part")
+	lenteInterna.Shape = Enum.PartType.Cylinder
+	lenteInterna.Size = Vector3.new(0.8, 1.4, 1.4)
+	lenteInterna.Material = Enum.Material.Glass
+	lenteInterna.Color = Color3.fromRGB(50, 50, 150)
+	lenteInterna.Transparency = 0.3
+	lenteInterna.Reflectance = 0.7
+	lenteInterna.Anchored = true
+	lenteInterna.CanCollide = false
+	lenteInterna.CFrame = lente.CFrame * CFrame.new(0.3, 0, 0)
+	lenteInterna.Parent = model
+
+	-- VISOR LCD TRASEIRO
+	local visor = Instance.new("Part")
+	visor.Size = Vector3.new(2, 1.5, 0.15)
+	visor.Material = Enum.Material.Neon
+	visor.Color = Color3.fromRGB(5, 5, 10)
+	visor.Anchored = true
+	visor.CanCollide = false
+	visor.CFrame = corpo.CFrame * CFrame.new(0, 0.3, 1.5)
+	visor.Parent = model
+
+	-- TEXTO NO VISOR
+	local surfaceGui = Instance.new("SurfaceGui")
+	surfaceGui.Face = Enum.NormalId.Front
+	surfaceGui.Parent = visor
+
+	local frame = Instance.new("Frame")
+	frame.Size = UDim2.new(1, 0, 1, 0)
+	frame.BackgroundColor3 = Color3.fromRGB(10, 10, 15)
+	frame.BorderSizePixel = 0
+	frame.Parent = surfaceGui
+
+	local textoRec = Instance.new("TextLabel")
+	textoRec.Size = UDim2.new(0.4, 0, 0.25, 0)
+	textoRec.Position = UDim2.new(0.05, 0, 0.05, 0)
+	textoRec.BackgroundTransparency = 1
+	textoRec.Text = "● REC"
+	textoRec.TextColor3 = Color3.fromRGB(255, 0, 0)
+	textoRec.TextScaled = true
+	textoRec.Font = Enum.Font.GothamBold
+	textoRec.Parent = frame
+
+	-- EMPUNHADURA
+	local grip = Instance.new("Part")
+	grip.Size = Vector3.new(0.8, 2, 1.2)
+	grip.Material = Enum.Material.SmoothPlastic
+	grip.Color = Color3.fromRGB(35, 35, 35)
+	grip.Anchored = true
+	grip.CanCollide = false
+	grip.CFrame = corpo.CFrame * CFrame.new(1.8, -1, 0.5)
+	grip.Parent = model
+
+	-- TEXTURA DA EMPUNHADURA
+	for i = 1, 5 do
+		local linha = Instance.new("Part")
+		linha.Size = Vector3.new(0.81, 0.1, 1.2)
+		linha.Material = Enum.Material.SmoothPlastic
+		linha.Color = Color3.fromRGB(45, 45, 45)
+		linha.Anchored = true
+		linha.CanCollide = false
+		linha.CFrame = grip.CFrame * CFrame.new(0, 0.8 - (i * 0.35), 0)
+		linha.Parent = model
+	end
+
+	-- BOTÃO DE DISPARO (vermelho)
+	local botaoDisparo = Instance.new("Part")
+	botaoDisparo.Shape = Enum.PartType.Cylinder
+	botaoDisparo.Size = Vector3.new(0.4, 0.6, 0.6)
+	botaoDisparo.Material = Enum.Material.SmoothPlastic
+	botaoDisparo.Color = Color3.fromRGB(200, 0, 0)
+	botaoDisparo.Anchored = true
+	botaoDisparo.CanCollide = false
+	botaoDisparo.CFrame = topo.CFrame * CFrame.new(0.8, 0.3, -0.3) * CFrame.Angles(0, 0, math.rad(90))
+	botaoDisparo.Parent = model
+
+	-- VISOR ÓTICO (buraquinho no topo)
+	local visorOtico = Instance.new("Part")
+	visorOtico.Shape = Enum.PartType.Ball
+	visorOtico.Size = Vector3.new(0.4, 0.4, 0.4)
+	visorOtico.Material = Enum.Material.Glass
+	visorOtico.Color = Color3.fromRGB(0, 0, 0)
+	visorOtico.Transparency = 0.3
+	visorOtico.Anchored = true
+	visorOtico.CanCollide = false
+	visorOtico.CFrame = topo.CFrame * CFrame.new(0.5, 0.2, 0.8)
+	visorOtico.Parent = model
+
+	-- LUZ INDICADORA (LED)
+	local led = Instance.new("Part")
+	led.Shape = Enum.PartType.Ball
+	led.Size = Vector3.new(0.3, 0.3, 0.3)
+	led.Material = Enum.Material.Neon
+	led.Color = Color3.fromRGB(255, 0, 0)
+	led.Anchored = true
+	led.CanCollide = false
+	led.CFrame = corpo.CFrame * CFrame.new(-1.3, 1, -1)
+	led.Parent = model
+
+	-- POINTLIGHT NO LED
+	local luz = Instance.new("PointLight")
+	luz.Brightness = 3
+	luz.Range = 8
+	luz.Color = Color3.fromRGB(255, 0, 0)
+	luz.Parent = led
+
+	-- ANIMAÇÃO DE PISCAR DO LED
+	spawn(function()
+		while led and led.Parent do
+			led.Transparency = 0
+			luz.Enabled = true
+			task.wait(0.6)
+			led.Transparency = 0.5
+			luz.Enabled = false
+			task.wait(0.6)
+		end
+	end)
+
+	-- ALÇA SUPERIOR
+	local alca = Instance.new("Part")
+	alca.Shape = Enum.PartType.Cylinder
+	alca.Size = Vector3.new(2.5, 0.3, 0.3)
+	alca.Material = Enum.Material.Metal
+	alca.Color = Color3.fromRGB(40, 40, 40)
+	alca.Anchored = true
+	alca.CanCollide = false
+	alca.CFrame = topo.CFrame * CFrame.new(0, 0.8, 0.3)
+	alca.Parent = model
+
+	model.PrimaryPart = corpo
+
+	return corpo
+end
+
+--// DETECTAR MORTE/RENASCIMENTO DO PERSONAGEM
+player.CharacterAdded:Connect(function(char)
+	task.wait(0.5)
+	
+	-- Se estava vendo câmera, reconectar
+	if vendoCamera and #cameras > 0 then
+		cam.CameraType = Enum.CameraType.Custom
+		cam.CameraSubject = cameras[cameraAtual]
+	end
+	
+	-- Reaplicar speed se estava ativo
+	if speedAtivo then
+		local humanoid = char:WaitForChild("Humanoid", 5)
+		if humanoid then
+			humanoid.WalkSpeed = speedValor
+		end
+	end
+end)
+
+--// ===============================
+--// SECTION GURAS (CÂMERAS)
+--// ===============================
+SectionGuras:CreateButton({
+	Name = "📷 Criar Câmera Realista",
+	Callback = function()
+		local char = player.Character
+		if not char then return end
+		local head = char:FindFirstChild("Head")
+		if not head then return end
+
+		local cameraPart = criarCameraRealista(head.CFrame * CFrame.new(0, 3, -5))
+		
+		table.insert(cameras, cameraPart)
+		cameraAtual = #cameras
+		atualizarInfo()
+		
+		Rayfield:Notify({
+			Title = "✅ Câmera Criada",
+			Content = "Câmera realista #"..cameraAtual.." criada!",
+			Duration = 3
+		})
+	end
+})
+
+--// ===============================
+--// SECTION CAMERAS
+--// ===============================
+SectionCameras:CreateToggle({
+	Name = "👁️ Ver pela Câmera",
+	CurrentValue = false,
+	Callback = function(value)
+		if #cameras == 0 then
+			Rayfield:Notify({
+				Title = "Aviso",
+				Content = "Nenhuma câmera criada",
+				Duration = 3
+			})
+			return
+		end
+
+		vendoCamera = value
+
+		if vendoCamera then
+			cam.CameraType = Enum.CameraType.Custom
+			cam.CameraSubject = cameras[cameraAtual]
+		else
+			cam.CameraType = Enum.CameraType.Custom
+			local char = player.Character
+			if char then
+				local humanoid = char:FindFirstChildOfClass("Humanoid")
+				if humanoid then
+					cam.CameraSubject = humanoid
+				end
+			end
+		end
+	end
+})
+
+SectionCameras:CreateButton({
+	Name = "🔁 Trocar Câmera",
+	Callback = function()
+		if #cameras <= 1 then return end
+		cameraAtual += 1
+		if cameraAtual > #cameras then
+			cameraAtual = 1
+		end
+
+		if vendoCamera then
+			cam.CameraSubject = cameras[cameraAtual]
+		end
+
+		atualizarInfo()
+	end
+})
+
+SectionCameras:CreateButton({
+	Name = "🗑️ Deletar Câmera Atual",
+	Callback = function()
+		if #cameras == 0 then return end
+		
+		local cameraPart = cameras[cameraAtual]
+		if cameraPart and cameraPart.Parent then
+			cameraPart.Parent:Destroy()
+		end
+		
+		table.remove(cameras, cameraAtual)
+		
+		if cameraAtual > #cameras then
+			cameraAtual = math.max(1, #cameras)
+		end
+		
+		atualizarInfo()
+		
+		if #cameras == 0 then
+			vendoCamera = false
+			cam.CameraType = Enum.CameraType.Custom
+			local char = player.Character
+			if char then
+				local humanoid = char:FindFirstChildOfClass("Humanoid")
+				if humanoid then
+					cam.CameraSubject = humanoid
+				end
+			end
+		end
+		
+		Rayfield:Notify({
+			Title = "Câmera Deletada",
+			Content = "Câmera removida com sucesso",
+			Duration = 2
+		})
+	end
+})
+
+--// ===============================
+--// SECTION MOVIMENTO
+--// ===============================
+SectionMovimento:CreateToggle({
+	Name = "⚡ Ativar Speed",
+	CurrentValue = false,
+	Callback = function(value)
+		speedAtivo = value
+		local char = player.Character
+		if char then
+			local humanoid = char:FindFirstChildOfClass("Humanoid")
+			if humanoid then
+				humanoid.WalkSpeed = speedAtivo and speedValor or 16
+			end
+		end
+	end
+})
+
+SectionMovimento:CreateSlider({
+	Name = "Velocidade",
+	Range = {16,100},
+	Increment = 1,
+	Suffix = "Studs",
+	CurrentValue = 16,
+	Callback = function(val)
+		speedValor = val
+		if speedAtivo then
+			local char = player.Character
+			if char then
+				local humanoid = char:FindFirstChildOfClass("Humanoid")
+				if humanoid then
+					humanoid.WalkSpeed = speedValor
+				end
+			end
+		end
+	end
+})
+
+--// ===============================
+--// SECTION PORTAIS - FUNÇÕES
+--// ===============================
+
+local function teleportarJogador(dePortal, paraPortal)
+	if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+		return
+	end
+	
+	local playerName = player.Name
+	
+	if teleportCooldown[playerName] then
+		return
+	end
+	
+	teleportCooldown[playerName] = true
+	
+	-- Teleporta 3 studs à frente do portal de destino
+	local offset = paraPortal.CFrame.LookVector * 3
+	local novaPosicao = paraPortal.CFrame * CFrame.new(0, 0, -3)
+	
+	player.Character:SetPrimaryPartCFrame(novaPosicao)
+	
+	task.wait(1)
+	teleportCooldown[playerName] = nil
+end
+
+local function criarPortal(posicao, olhandoPara)
+	if not player.Character then return end
+	
+	local numeroPortal = contadorPortais
+	local numeroPar
+	
+	-- Determina qual é o par: 1↔2, 3↔4, 5↔6, etc
+	if numeroPortal % 2 == 1 then
+		-- Portal ímpar (1, 3, 5...)
+		numeroPar = numeroPortal + 1
+	else
+		-- Portal par (2, 4, 6...)
+		numeroPar = numeroPortal - 1
+	end
+	
+	-- Determina o índice do par para as cores
+	local indicePar = math.ceil(numeroPortal / 2)
+	
+	-- Gera cores para o par se ainda não existir
+	if not paresPortais[indicePar] then
+		local cor1, cor2 = gerarCores()
+		paresPortais[indicePar] = {cor1 = cor1, cor2 = cor2}
+	end
+	
+	-- Define a cor: portais ímpares usam cor1, pares usam cor2
+	local cor = (numeroPortal % 2 == 1) and paresPortais[indicePar].cor1 or paresPortais[indicePar].cor2
+	
+	local portal = Instance.new("Part")
+	portal.Name = "Portal_" .. numeroPortal
+	portal.Anchored = true
+	portal.CanCollide = false
+	portal.Material = Enum.Material.Neon
+	portal.Color = cor
+	portal.Transparency = 0.3
+	
+	local cframe = CFrame.new(posicao, posicao + olhandoPara)
+	
+	-- Formatos diferentes
+	if formatoPortal == "Cilindro" then
+		portal.Shape = Enum.PartType.Cylinder
+		portal.Size = Vector3.new(0.5, 6, 6)
+		portal.CFrame = cframe * CFrame.Angles(0, math.rad(90), 0)
+	elseif formatoPortal == "Esfera" then
+		portal.Shape = Enum.PartType.Ball
+		portal.Size = Vector3.new(6, 6, 6)
+		portal.CFrame = cframe
+	elseif formatoPortal == "Retângulo" then
+		portal.Shape = Enum.PartType.Block
+		portal.Size = Vector3.new(0.5, 8, 5)
+		portal.CFrame = cframe
+	elseif formatoPortal == "Quadrado" then
+		portal.Shape = Enum.PartType.Block
+		portal.Size = Vector3.new(0.5, 6, 6)
+		portal.CFrame = cframe
+	elseif formatoPortal == "Triângulo" then
+		portal.Shape = Enum.PartType.Block
+		portal.Size = Vector3.new(0.5, 6, 6)
+		portal.CFrame = cframe
+		
+		-- Criar efeito de triângulo com wedges
+		local wedge1 = Instance.new("WedgePart")
+		wedge1.Size = Vector3.new(0.5, 3, 6)
+		wedge1.Material = Enum.Material.Neon
+		wedge1.Color = cor
+		wedge1.Transparency = 0.3
+		wedge1.Anchored = true
+		wedge1.CanCollide = false
+		wedge1.CFrame = portal.CFrame * CFrame.new(0, 1.5, 0) * CFrame.Angles(0, 0, math.rad(180))
+		wedge1.Parent = portal
+	end
+	
+	portal.Parent = workspace
+	
+	-- Billboard com número
+	local billboard = Instance.new("BillboardGui")
+	billboard.Size = UDim2.new(0, 100, 0, 100)
+	billboard.Adornee = portal
+	billboard.AlwaysOnTop = true
+	billboard.Parent = portal
+	
+	local textoNumero = Instance.new("TextLabel")
+	textoNumero.Size = UDim2.new(1, 0, 1, 0)
+	textoNumero.BackgroundTransparency = 1
+	textoNumero.Text = tostring(numeroPortal)
+	textoNumero.Font = Enum.Font.GothamBold
+	textoNumero.TextSize = 70
+	textoNumero.TextColor3 = Color3.new(1, 1, 1)
+	textoNumero.TextStrokeTransparency = 0
+	textoNumero.TextStrokeColor3 = Color3.new(0, 0, 0)
+	textoNumero.Parent = billboard
+	
+	-- Zona de detecção de teleporte
+	local function criarZona(offsetZ)
+		local zona = Instance.new("Part")
+		zona.Name = "Zona_" .. numeroPortal
+		zona.Size = Vector3.new(7, 9, 2)
+		zona.Transparency = 1
+		zona.CanCollide = false
+		zona.Anchored = true
+		zona.CFrame = portal.CFrame * CFrame.new(0, 0, offsetZ)
+		zona.Parent = portal
+		
+		zona.Touched:Connect(function(hit)
+			if hit.Parent and hit.Parent:FindFirstChild("Humanoid") then
+				if hit.Parent.Name == player.Name then
+					-- Teleporta para o portal par
+					local portalDestino = portaisAtivos[numeroPar]
+					
+					if portalDestino then
+						teleportarJogador(portal, portalDestino)
+					end
+				end
+			end
+		end)
+	end
+	
+	criarZona(3)
+	criarZona(-3)
+	
+	-- Armazena o portal
+	portaisAtivos[numeroPortal] = portal
+	
+	-- Incrementa o contador para o próximo portal
+	contadorPortais = contadorPortais + 1
+	
+	-- Notificação
+	Rayfield:Notify({
+		Title = "Portal #" .. numeroPortal .. " Criado",
+		Content = "Teleporta para Portal #" .. numeroPar,
+		Duration = 2
+	})
+end
+
+--// ===============================
+--// SECTION PORTAIS - UI
+--// ===============================
+
+SectionPortais:CreateLabel("Modo de Criação")
+
+SectionPortais:CreateToggle({
+	Name = "🎯 Portal na Frente (4 studs)",
+	CurrentValue = false,
+	Callback = function(value)
+		portalAtivo = value
+		if value then
+			modoClique = false
+		end
+	end
+})
+
+SectionPortais:CreateToggle({
+	Name = "🖱️ Portal no Clique",
+	CurrentValue = false,
+	Callback = function(value)
+		modoClique = value
+		if value then
+			portalAtivo = false
+		end
+	end
+})
+
+SectionPortais:CreateLabel("Configurações")
+
+SectionPortais:CreateDropdown({
+	Name = "🔷 Formato do Portal",
+	Options = {"Cilindro", "Esfera", "Retângulo", "Quadrado", "Triângulo"},
+	CurrentOption = {"Cilindro"},
+	MultipleOptions = false,
+	Callback = function(option)
+		formatoPortal = option[1]
+		Rayfield:Notify({
+			Title = "Formato Alterado",
+			Content = "Portal: " .. formatoPortal,
+			Duration = 2
+		})
+	end
+})
+
+SectionPortais:CreateButton({
+	Name = "🗑️ DELETAR Todos os Portais",
+	Callback = function()
+		for numero, portal in pairs(portaisAtivos) do
+			portal:Destroy()
+		end
+		portaisAtivos = {}
+		paresPortais = {}
+		contadorPortais = 1
+		teleportCooldown = {}
+		
+		Rayfield:Notify({
+			Title = "Portais",
+			Content = "Todos os portais foram deletados!",
+			Duration = 3
+		})
+	end
+})
+
+SectionPortais:CreateLabel("Info: 1↔2 | 3↔4 | 5↔6 | 7↔8...")
+
+--// DETECTAR CLIQUE PARA CRIAR PORTAIS
+mouse.Button1Down:Connect(function()
+	local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+	if not hrp then return end
+	
+	if portalAtivo then
+		local posicao = (hrp.CFrame * CFrame.new(0, 0, -4)).Position
+		local olhando = hrp.CFrame.LookVector
+		criarPortal(posicao, olhando)
+	elseif modoClique then
+		local posicao = mouse.Hit.Position
+		local olhando = hrp.CFrame.LookVector
+		criarPortal(posicao, olhando)
+	end
+end)
+
+--// GARANTIR RECONEXÃO DA CÂMERA
+RunService.RenderStepped:Connect(function()
+	if vendoCamera and #cameras > 0 then
+		if cam.CameraSubject ~= cameras[cameraAtual] then
+			cam.CameraSubject = cameras[cameraAtual]
+		end
+	end
+end)
+
+print("=========================================")
+print("✅ SISTEMA COMPLETO CARREGADO!")
+print("📷 Câmeras Realistas | 🏃 Movimento | 🌀 Portais")
+print("=========================================")
